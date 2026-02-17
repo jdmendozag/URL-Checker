@@ -23,7 +23,7 @@ jobs:
           name: reporte-${{ matrix.batch }}
           path: resultado_batch_${{ matrix.batch }}.csv
 
-  unificar_reporte:
+  unificar_y_enviar:
     needs: revisar_urls
     runs-on: ubuntu-latest
     steps:
@@ -33,13 +33,21 @@ jobs:
           pattern: reporte-*
           merge-multiple: true
       
-      - name: Pegar archivos
+      - name: Unificar archivos
         run: |
           echo "URL,Status_Real" > reporte_final_total.csv
           tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_final_total.csv
           
-      - name: Subir Archivo Unico
+      - name: Guardar copia en GitHub (Artifact)
         uses: actions/upload-artifact@v4
         with:
           name: REPORTE_FINAL_TOTAL
           path: reporte_final_total.csv
+
+      # ENVÍO A n8n (URL DE PRODUCCIÓN)
+      - name: Enviar reporte a n8n
+        run: |
+          curl -X POST \
+          -H "Content-Type: multipart/form-data" \
+          -F "file=@reporte_final_total.csv" \
+          https://holateam.app.n8n.cloud/webhook/phase1-intake
