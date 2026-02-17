@@ -50,4 +50,4 @@ jobs:
           curl -X POST \
           -H "Content-Type: multipart/form-data" \
           -F "file=@reporte_final_total.csv" \
-          https://holateam.app.n8n.cloud/webhook/phase1-intake
+          https://holateam.app.n8n.cloud/webhook-test/phase1-intake
