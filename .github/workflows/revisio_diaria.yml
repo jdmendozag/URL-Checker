@@ -33,14 +33,29 @@ jobs:
           pattern: reporte-*
           merge-multiple: true
       
-      - name: Unificar archivos
+      - name: Generar Reportes Diferenciados
         run: |
-          echo "URL,Status,Idioma,H1,H2,MetaTitle,MetaDescription" > reporte_final_total.csv
-          tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_final_total.csv
+          # Crear cabeceras y unir datos
+          echo "URL,Status" > reporte_tecnico_it.csv
+          tail -q -n +2 resultados/resultado_batch_*.csv | awk -F',' '{print $1","$2}' >> reporte_tecnico_it.csv
           
-      - name: Enviar reporte a n8n
+          echo "URL,Status,Idioma,H1,H2,MetaTitle,MetaDescription" > reporte_seo_completo.csv
+          tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_seo_completo.csv
+          
+      # ESTO ES LO QUE TE FALTA PARA QUE APAREZCA EN ARTIFACTS
+      - name: Subir Archivos Unificados a GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: REPORTES_DEL_DIA
+          path: |
+            reporte_tecnico_it.csv
+            reporte_seo_completo.csv
+          retention-days: 5
+
+      - name: Enviar a n8n
         run: |
           curl -X POST \
           -H "Content-Type: multipart/form-data" \
-          -F "file=@reporte_final_total.csv" \
+          -F "file_it=@reporte_tecnico_it.csv" \
+          -F "file_seo=@reporte_seo_completo.csv" \
           https://holateam.app.n8n.cloud/webhook/phase1-intake
