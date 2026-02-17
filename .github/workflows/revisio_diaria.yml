@@ -1,7 +1,7 @@
 name: Checker Diario Hola Car Rentals
 on:
   schedule:
-    - cron: '0 11 * * *' # 6:00 AM Colombia/México
+    - cron: '0 11 * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,10 +21,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: reporte-${{ matrix.batch }}
-          path: resultado_batch_${{ matrix.batch.csv }}
+          path: resultado_batch_${{ matrix.batch }}.csv
 
-  unificar_y_enviar:
-    needs: revisar_urls # Espera a que los 10 terminen
+  unificar_reporte:
+    needs: revisar_urls
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -33,18 +33,13 @@ jobs:
           pattern: reporte-*
           merge-multiple: true
       
-      - name: Unificar archivos
+      - name: Pegar archivos
         run: |
           echo "URL,Status_Real" > reporte_final_total.csv
           tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_final_total.csv
           
-      - name: Guardar Reporte Unificado
+      - name: Subir Archivo Unico
         uses: actions/upload-artifact@v4
         with:
-          name: REPORTE_FINAL_COMPLETO
+          name: REPORTE_FINAL_TOTAL
           path: reporte_final_total.csv
-          
-      # AQUÍ CONECTAS CON n8n:
-      - name: Enviar a n8n
-        run: |
-          curl -X POST -F "file=@reporte_final_total.csv" https://tu-webhook-de-n8n.com/asdf123
