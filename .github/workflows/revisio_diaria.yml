@@ -1,29 +1,4 @@
-name: Checker Diario Hola Car Rentals
-on:
-  schedule:
-    - cron: '0 11 * * *'
-  workflow_dispatch:
-
-jobs:
-  revisar_urls:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: pip install aiohttp beautifulsoup4  # <--- NUEVA LIBRERÍA INSTALADA
-      - run: python checker_github.py ${{ matrix.batch }} 10
-      - uses: actions/upload-artifact@v4
-        with:
-          name: reporte-${{ matrix.batch }}
-          path: resultado_batch_${{ matrix.batch }}.csv
-
-  unificar_y_enviar:
+unificar_y_enviar:
     needs: revisar_urls
     runs-on: ubuntu-latest
     steps:
@@ -33,29 +8,23 @@ jobs:
           pattern: reporte-*
           merge-multiple: true
       
-      - name: Generar Reportes Diferenciados
+      - name: Generar Reporte SEO Completo
         run: |
-          # Crear cabeceras y unir datos
-          echo "URL,Status" > reporte_tecnico_it.csv
-          tail -q -n +2 resultados/resultado_batch_*.csv | awk -F',' '{print $1","$2}' >> reporte_tecnico_it.csv
-          
+          # Creamos la cabecera y unimos todos los datos de los 10 batches
           echo "URL,Status,Idioma,H1,H2,MetaTitle,MetaDescription" > reporte_seo_completo.csv
           tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_seo_completo.csv
           
-      # ESTO ES LO QUE TE FALTA PARA QUE APAREZCA EN ARTIFACTS
-      - name: Subir Archivos Unificados a GitHub
+      - name: Subir Reporte a GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: REPORTES_DEL_DIA
-          path: |
-            reporte_tecnico_it.csv
-            reporte_seo_completo.csv
+          name: REPORTE_FINAL_SEO
+          path: reporte_seo_completo.csv
           retention-days: 5
 
       - name: Enviar a n8n
         run: |
+          # Enviamos únicamente el archivo SEO completo
           curl -X POST \
           -H "Content-Type: multipart/form-data" \
-          -F "file_it=@reporte_tecnico_it.csv" \
-          -F "file_seo=@reporte_seo_completo.csv" \
+          -F "file=@reporte_seo_completo.csv" \
           https://holateam.app.n8n.cloud/webhook/phase1-intake
