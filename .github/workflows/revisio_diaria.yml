@@ -1,34 +1,50 @@
 name: Checker Diario Hola Car Rentals
 on:
   schedule:
-    - cron: '0 11 * * *' # Esto ejecuta el script a las 6:00 AM (Hora Colombia/CDMX)
-  workflow_dispatch: # Esto permite que lo actives tú manualmente cuando quieras
+    - cron: '0 11 * * *' # 6:00 AM Colombia/México
+  workflow_dispatch:
 
 jobs:
   revisar_urls:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        # GitHub lanzará 10 servidores virtuales al mismo tiempo
         batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
-      - name: Descargar el código del repositorio
-        uses: actions/checkout@v4
-
-      - name: Configurar Python en el servidor
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+      - run: pip install aiohttp
+      - run: python checker_github.py ${{ matrix.batch }} 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reporte-${{ matrix.batch }}
+          path: resultado_batch_${{ matrix.batch.csv }}
 
-      - name: Instalar librerías necesarias
-        run: pip install aiohttp
-
-      - name: Ejecutar revisión del bloque correspondiente
-        run: python checker_github.py ${{ matrix.batch }} 10
-
-      - name: Guardar el reporte generado por esta máquina
+  unificar_y_enviar:
+    needs: revisar_urls # Espera a que los 10 terminen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: resultados
+          pattern: reporte-*
+          merge-multiple: true
+      
+      - name: Unificar archivos
+        run: |
+          echo "URL,Status_Real" > reporte_final_total.csv
+          tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_final_total.csv
+          
+      - name: Guardar Reporte Unificado
         uses: actions/upload-artifact@v4
         with:
-          name: reporte-parcial-${{ matrix.batch }}
-          path: resultado_batch_${{ matrix.batch }}.csv
-          retention-days: 5 # Los archivos se borrarán solitos en 5 días para no ocupar espacio
+          name: REPORTE_FINAL_COMPLETO
+          path: reporte_final_total.csv
+          
+      # AQUÍ CONECTAS CON n8n:
+      - name: Enviar a n8n
+        run: |
+          curl -X POST -F "file=@reporte_final_total.csv" https://tu-webhook-de-n8n.com/asdf123
