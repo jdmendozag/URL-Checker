@@ -1,4 +1,33 @@
-unificar_y_enviar:
+name: Checker Diario Hola Car Rentals
+on:
+  schedule:
+    - cron: '0 11 * * *' # Ejecuta a las 6:00 AM (UTC-5)
+  workflow_dispatch:    # Permite ejecución manual
+
+jobs:
+  revisar_urls:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] # Divide el trabajo en 10 máquinas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Instalar librerías
+        run: pip install aiohttp beautifulsoup4
+      - name: Ejecutar Script de Extracción
+        run: python checker_github.py ${{ matrix.batch }} 10
+      - name: Subir lote temporal
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-${{ matrix.batch }}
+          path: resultado_batch_${{ matrix.batch }}.csv
+          retention-days: 1
+
+  unificar_y_enviar:
     needs: revisar_urls
     runs-on: ubuntu-latest
     steps:
@@ -10,11 +39,10 @@ unificar_y_enviar:
       
       - name: Generar Reporte SEO Completo
         run: |
-          # Creamos la cabecera y unimos todos los datos de los 10 batches
           echo "URL,Status,Idioma,H1,H2,MetaTitle,MetaDescription" > reporte_seo_completo.csv
           tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_seo_completo.csv
           
-      - name: Subir Reporte a GitHub
+      - name: Subir Reporte Final a GitHub
         uses: actions/upload-artifact@v4
         with:
           name: REPORTE_FINAL_SEO
@@ -23,7 +51,6 @@ unificar_y_enviar:
 
       - name: Enviar a n8n
         run: |
-          # Enviamos únicamente el archivo SEO completo
           curl -X POST \
           -H "Content-Type: multipart/form-data" \
           -F "file=@reporte_seo_completo.csv" \
