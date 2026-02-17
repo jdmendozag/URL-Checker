@@ -52,6 +52,5 @@ jobs:
       - name: Enviar a n8n
         run: |
           curl -X POST \
-          -H "Content-Type: multipart/form-data" \
           -F "file=@reporte_seo_completo.csv" \
           https://holateam.app.n8n.cloud/webhook/phase1-intake
