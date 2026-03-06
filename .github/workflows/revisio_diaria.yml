@@ -1,8 +1,16 @@
 name: Checker Diario Hola Car Rentals
+
 on:
   schedule:
-    - cron: '0 11 * * *' # Ejecuta a las 6:00 AM (UTC-5)
-  workflow_dispatch:    # Permite ejecución manual
+    - cron: '0 11 * * *' # Ejecuta a las 6:00 AM hora de Colombia (UTC-5)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: checker-diario-hola
+  cancel-in-progress: false
 
 jobs:
   revisar_urls:
@@ -13,13 +21,19 @@ jobs:
         batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] # Divide el trabajo en 10 máquinas
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Instalar librerías
         run: pip install aiohttp beautifulsoup4
+
       - name: Ejecutar Script de Extracción
         run: python checker_github.py ${{ matrix.batch }} 10
+
       - name: Subir lote temporal
         uses: actions/upload-artifact@v4
         with:
@@ -31,26 +45,43 @@ jobs:
     needs: revisar_urls
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - uses: actions/download-artifact@v4
         with:
           path: resultados
           pattern: reporte-*
           merge-multiple: true
-      
+
       - name: Generar Reporte SEO Completo
         run: |
           echo "URL,Status,Idioma,H1,H2,MetaTitle,MetaDescription" > reporte_seo_completo.csv
           tail -q -n +2 resultados/resultado_batch_*.csv >> reporte_seo_completo.csv
-          
-      - name: Subir Reporte Final a GitHub
+
+      - name: Guardar reporte final en el repo
+        run: |
+          mkdir -p reports
+          cp reporte_seo_completo.csv reports/reporte_final_seo.csv
+
+      - name: Subir Reporte Final como artifact
         uses: actions/upload-artifact@v4
         with:
           name: REPORTE_FINAL_SEO
           path: reporte_seo_completo.csv
           retention-days: 5
 
+      - name: Commit y push del reporte final
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/reporte_final_seo.csv
+          git diff --cached --quiet || git commit -m "Actualizar reporte SEO diario"
+          git push
+
       - name: Enviar a n8n
         run: |
           curl -X POST \
-          -F "file=@reporte_seo_completo.csv" \
-          https://holateam.app.n8n.cloud/webhook/phase1-intake
+            -F "file=@reporte_seo_completo.csv" \
+            https://holateam.app.n8n.cloud/webhook/phase1-intake
