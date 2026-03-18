@@ -2,7 +2,7 @@ name: Checker Diario Hola Car Rentals
 
 on:
   schedule:
-    - cron: '47 10 * * *' # Ejecuta a las 6:00 AM hora de Colombia (UTC-5)
+    - cron: '0,5,10,15,20,25 11 * * *'   # 6:00–6:25 AM Colombia
   workflow_dispatch:
 
 permissions:
